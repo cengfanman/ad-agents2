@@ -37,6 +37,9 @@ def diagnose(
     scenario: str = typer.Option(..., "--scenario", help="場景檔案路徑 (如 scenarios/scenario_low_impr.json)"),
     mode: str = typer.Option("keyword", "--mode", help="廣告分析模式 (keyword/campaign)"),
     break_competitor: bool = typer.Option(False, "--break-competitor", help="模擬競品工具失敗"),
+    break_ads_metrics: bool = typer.Option(False, "--break-ads-metrics", help="模擬廣告指標工具失敗"),
+    break_listing_audit: bool = typer.Option(False, "--break-listing-audit", help="模擬Listing檢查工具失敗"),
+    break_inventory: bool = typer.Option(False, "--break-inventory", help="模擬庫存檢查工具失敗"),
     generate_report: bool = typer.Option(True, "--report/--no-report", help="是否生成 OpenAI 報告")
 ):
     """執行廣告診斷分析"""
@@ -48,7 +51,16 @@ def diagnose(
 
         # 執行 Agent 主循環
         console.print("🚀 開始執行診斷...")
-        result = run_agent_loop(scenario_data, mode, break_competitor)
+
+        # 組裝工具失敗配置
+        break_tools = {
+            "Competitor": break_competitor,
+            "AdsMetrics": break_ads_metrics,
+            "ListingAudit": break_listing_audit,
+            "Inventory": break_inventory
+        }
+
+        result = run_agent_loop(scenario_data, mode, break_tools)
 
         if result["success"]:
             console.print("\n✅ 診斷完成！")
@@ -127,7 +139,7 @@ def test():
 
         try:
             scenario_data = load_scenario(scenario_path)
-            result = run_agent_loop(scenario_data, "keyword", False)
+            result = run_agent_loop(scenario_data, "keyword", {})
 
             if result["success"]:
                 console.print(f"✅ {scenario_path} - 成功")

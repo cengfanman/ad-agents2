@@ -18,18 +18,20 @@ from tools.inventory import check_inventory_status
 
 
 def run_agent_loop(scenario: ScenarioInput, mode: str = "keyword",
-                  break_competitor: bool = False) -> Dict[str, Any]:
+                  break_tools: Dict[str, bool] = None) -> Dict[str, Any]:
     """
     執行 Agent 主循環
 
     Args:
         scenario: 場景輸入
         mode: 廣告分析模式
-        break_competitor: 是否模擬競品工具失敗
+        break_tools: 工具失敗模擬配置 (Dict[工具名, 是否失敗])
 
     Returns:
         Dict: 執行結果
     """
+    if break_tools is None:
+        break_tools = {}
     # 初始化 Agent 上下文
     context = AgentContext(
         scenario=scenario,
@@ -85,7 +87,7 @@ def run_agent_loop(scenario: ScenarioInput, mode: str = "keyword",
             selected_tool,
             scenario.scenario_name or "default",
             mode,
-            break_competitor
+            break_tools
         )
 
         reasoning.log_tool_result(tool_result)
@@ -155,7 +157,7 @@ def run_agent_loop(scenario: ScenarioInput, mode: str = "keyword",
 
 
 def execute_tool(tool_name: str, scenario_path: str, mode: str = "keyword",
-                break_competitor: bool = False) -> ToolResult:
+                break_tools: Dict[str, bool] = None) -> ToolResult:
     """
     執行指定工具
 
@@ -163,20 +165,28 @@ def execute_tool(tool_name: str, scenario_path: str, mode: str = "keyword",
         tool_name: 工具名稱
         scenario_path: 場景路徑
         mode: 模式參數
-        break_competitor: 是否模擬競品工具失敗
+        break_tools: 工具失敗模擬配置
 
     Returns:
         ToolResult: 工具執行結果
     """
+    if break_tools is None:
+        break_tools = {}
     import time
     start_time = time.time()
 
     try:
+        # 檢查是否需要模擬工具失敗
+        if break_tools.get(tool_name, False):
+            raise Exception(f"模擬 {tool_name} 工具失敗")
+
         if tool_name == "AdsMetrics":
             result = analyze_ads_metrics(scenario_path, mode)
         elif tool_name == "ListingAudit":
             result = audit_listing_quality(scenario_path)
         elif tool_name == "Competitor":
+            # 保持向後兼容性
+            break_competitor = break_tools.get("Competitor", False)
             result = analyze_competitors(scenario_path, break_competitor)
         elif tool_name == "Inventory":
             result = check_inventory_status(scenario_path)
