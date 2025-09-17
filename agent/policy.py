@@ -105,7 +105,7 @@ def initialize_hypotheses(goal: GoalType) -> List[Hypothesis]:
     return hypotheses
 
 
-def select_next_tool(context: AgentContext) -> Optional[str]:
+def select_next_tool(context: AgentContext) -> Tuple[Optional[str], str]:
     """
     選擇下一個要執行的工具
 
@@ -113,36 +113,111 @@ def select_next_tool(context: AgentContext) -> Optional[str]:
         context: Agent 上下文
 
     Returns:
-        Optional[str]: 選擇的工具名稱，None 表示無工具可選
+        Tuple[Optional[str], str]: 選擇的工具名稱和詳細推理過程
     """
     # 獲取已執行的工具
     executed_tools = {result.tool_name for result in context.tool_results if result.ok}
+    failed_tools = {result.tool_name for result in context.tool_results if not result.ok}
 
     # 按信念值排序假設
     sorted_hypotheses = sorted(context.hypotheses, key=lambda h: h.belief, reverse=True)
 
-    # 選擇工具的優先級策略
-    for hypothesis in sorted_hypotheses[:2]:  # 只考慮前兩個最高信念的假設
-        # 找出該假設對應的工具
-        for tool_name, tool_rules in RULES.items():
-            if hypothesis.id in tool_rules and tool_name not in executed_tools:
-                # 檢查是否應該避免重複使用同一工具
-                if (context.last_tool == tool_name and
-                    context.last_gain < 0.05 and
-                    len(executed_tools) > 0):
-                    continue
-                return tool_name
+    # 構建詳細推理過程
+    reasoning_steps = []
+    reasoning_steps.append(f"🎯 工具選擇邏輯分析：")
+    reasoning_steps.append(f"")
+    reasoning_steps.append(f"1️⃣ 已執行工具狀態：")
 
-    # 如果沒有優先工具，選擇任何未執行的工具
-    all_tools = set(RULES.keys())
-    remaining_tools = all_tools - executed_tools
-    return next(iter(remaining_tools)) if remaining_tools else None
+    if executed_tools:
+        reasoning_steps.append(f"   ✅ 成功執行：{', '.join(executed_tools)}")
+    if failed_tools:
+        reasoning_steps.append(f"   ❌ 執行失敗：{', '.join(failed_tools)}")
+    if not executed_tools and not failed_tools:
+        reasoning_steps.append(f"   🆕 尚未執行任何工具")
+
+    reasoning_steps.append(f"")
+    reasoning_steps.append(f"2️⃣ 假設信念值排序：")
+    for i, hyp in enumerate(sorted_hypotheses, 1):
+        change_indicator = ""
+        if hyp.previous_belief is not None:
+            diff = hyp.belief - hyp.previous_belief
+            if diff > 0:
+                change_indicator = f" (↗️ +{diff:.2f})"
+            elif diff < 0:
+                change_indicator = f" (↘️ {diff:.2f})"
+        reasoning_steps.append(f"   {i}. {hyp.name}：{hyp.belief:.2f}{change_indicator}")
+
+    reasoning_steps.append(f"")
+    reasoning_steps.append(f"3️⃣ 工具映射關係：")
+    for tool_name, tool_rules in RULES.items():
+        # 獲取假設名稱
+        hyp_names = [HYPOTHESIS_DEFINITIONS[hyp_id]["name"] for hyp_id in tool_rules.keys()]
+
+        # 獲取檢測的特徵
+        features = []
+        for hyp_id, rules in tool_rules.items():
+            for rule in rules:
+                feature_name = rule["feature"]
+                if feature_name not in features:
+                    features.append(feature_name)
+
+        # 狀態標記
+        status = ""
+        if tool_name in executed_tools:
+            status = " ✅"
+        elif tool_name in failed_tools:
+            status = " ❌"
+        else:
+            status = " ⏳"
+
+        reasoning_steps.append(f"   • {tool_name}{status} → {', '.join(hyp_names)}")
+        reasoning_steps.append(f"     └─ 檢測特徵：{', '.join(features)}")
+
+    reasoning_steps.append(f"")
+    reasoning_steps.append(f"4️⃣ 選擇策略：")
+
+    # 選擇工具的優先級策略：按信念值從高到低檢查所有假設
+    for i, hypothesis in enumerate(sorted_hypotheses, 1):
+        reasoning_steps.append(f"   檢查第{i}高信念假設：{hypothesis.name} ({hypothesis.belief:.2f})")
+
+        # 找出該假設對應的工具
+        hypothesis_tools = []
+        for tool_name, tool_rules in RULES.items():
+            if hypothesis.id in tool_rules:
+                hypothesis_tools.append(tool_name)
+
+        if hypothesis_tools:
+            reasoning_steps.append(f"   └─ 對應工具：{', '.join(hypothesis_tools)}")
+
+            for tool_name in hypothesis_tools:
+                if tool_name not in executed_tools and tool_name not in failed_tools:
+                    # 檢查是否應該避免重複使用同一工具
+                    if (context.last_tool == tool_name and
+                        context.last_gain < 0.05 and
+                        len(executed_tools) > 0):
+                        reasoning_steps.append(f"   └─ ⚠️  跳過 {tool_name}：上次使用該工具信念增益過低")
+                        continue
+
+                    reasoning_steps.append(f"   └─ ✅ 選擇 {tool_name}：針對第{i}高信念假設的未執行工具")
+
+                    final_reasoning = "\n".join(reasoning_steps)
+                    return tool_name, final_reasoning
+                else:
+                    status_msg = "已執行" if tool_name in executed_tools else "執行失敗"
+                    reasoning_steps.append(f"   └─ ❌ {tool_name}：{status_msg}")
+        else:
+            reasoning_steps.append(f"   └─ ⚠️  無對應工具")
+
+    # 如果所有假設對應的工具都已執行完畢
+    reasoning_steps.append(f"   ❌ 所有假設對應的工具都已執行完畢")
+    final_reasoning = "\n".join(reasoning_steps)
+    return None, final_reasoning
 
 
 def update_beliefs_from_features(hypotheses: List[Hypothesis], tool_name: str,
                                 features: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    根據工具返回的特徵更新假設信念
+    根據工具返回的特徵更新假設信念（簡化版：每個特徵獨立更新）
 
     Args:
         hypotheses: 假設列表
@@ -159,53 +234,48 @@ def update_beliefs_from_features(hypotheses: List[Hypothesis], tool_name: str,
 
     tool_rules = RULES[tool_name]
 
+    # 遍歷每個假設的每個特徵，獨立更新信念
     for hypothesis in hypotheses:
         if hypothesis.id not in tool_rules:
             continue
 
-        # 保存舊信念值
-        hypothesis.previous_belief = hypothesis.belief
+        # 保存初始信念值（僅在第一次更新時）
+        if hypothesis.previous_belief is None:
+            hypothesis.previous_belief = hypothesis.belief
 
-        # 計算該假設的所有證據分數
-        scores = []
-        evidence_descriptions = []
-
+        # 對每個特徵獨立計算和更新
         for rule in tool_rules[hypothesis.id]:
             feature_name = rule["feature"]
             if feature_name in features:
                 feature_value = features[feature_name]
                 score = score_feature(feature_value, rule)
-                scores.append(score)
 
                 # 記錄詳細計算過程
                 from agent import reasoning
                 reasoning.log_detailed_calculation(feature_name, feature_value, rule, score)
 
-                # 記錄證據描述
-                evidence_descriptions.append(f"{feature_name}={feature_value}(分數:{score:+.2f})")
+                # 單獨更新信念
+                old_belief = hypothesis.belief
+                new_belief, change = update_belief(hypothesis.belief, ALPHA, [score])
+                hypothesis.belief = new_belief
 
-        if scores:
-            # 更新信念
-            old_belief = hypothesis.belief
-            new_belief, change = update_belief(hypothesis.belief, ALPHA, scores)
-            hypothesis.belief = new_belief
+                # 記錄詳細的信念更新計算過程
+                reasoning.log_belief_update_calculation(
+                    hypothesis.name, old_belief, [score], new_belief, ALPHA
+                )
 
-            # 記錄詳細的信念更新計算過程
-            from agent import reasoning
-            reasoning.log_belief_update_calculation(
-                hypothesis.name, old_belief, scores, new_belief, ALPHA
-            )
-
-            # 記錄更新詳情
-            update_info = {
-                "hypothesis": hypothesis.name,
-                "evidence": "; ".join(evidence_descriptions),
-                "score": sum(scores) / len(scores),
-                "old_belief": hypothesis.previous_belief,
-                "new_belief": hypothesis.belief,
-                "change": change
-            }
-            updates.append(update_info)
+                # 記錄更新詳情
+                update_info = {
+                    "hypothesis": hypothesis.name,
+                    "feature": feature_name,
+                    "feature_value": feature_value,
+                    "evidence": f"{feature_name}={feature_value}(分數:{score:+.2f})",
+                    "score": score,
+                    "old_belief": old_belief,
+                    "new_belief": hypothesis.belief,
+                    "change": change
+                }
+                updates.append(update_info)
 
     return updates
 
@@ -357,43 +427,32 @@ def _generate_actions_for_hypothesis(hypothesis: Hypothesis, context: AgentConte
     return actions[:3]  # 最多返回3個行動建議
 
 
-def should_terminate(context: AgentContext) -> bool:
+def should_terminate(context: AgentContext) -> Tuple[bool, str]:
     """
-    判斷是否應該終止診斷
+    判斷是否應該終止診斷（簡化版：信心閾值終止）
 
     Args:
         context: Agent 上下文
 
     Returns:
-        bool: 是否應該終止
+        Tuple[bool, str]: (是否應該終止, 終止原因)
     """
     # 強制要求至少執行3步
     if context.step < 3:
-        return False
+        return False, ""
 
     # 獲取最高信念值
     max_belief = max(h.belief for h in context.hypotheses)
+    top_hypothesis = max(context.hypotheses, key=lambda h: h.belief)
 
-    # 高信心終止（≥ 0.8）
-    if max_belief >= 0.8:
-        return True
-
-    # 中等信心 + 工具完成終止（≥ 0.7）
-    if max_belief >= 0.7:
-        # 檢查主要假設的工具是否都已執行
-        top_hypothesis = max(context.hypotheses, key=lambda h: h.belief)
-        executed_tools = {result.tool_name for result in context.tool_results if result.ok}
-
-        required_tools = set()
-        for tool_name, tool_rules in RULES.items():
-            if top_hypothesis.id in tool_rules:
-                required_tools.add(tool_name)
-
-        if required_tools.issubset(executed_tools):
-            return True
+    # 簡單終止邏輯：達到信心閾值就停止
+    if max_belief >= 0.42:
+        reason = f"🎯 信心達標終止：「{top_hypothesis.name}」信心值 {max_belief:.2f} ≥ 0.42"
+        return True, reason
 
     # 達到最大步數限制
     if context.step >= 5:
-        return True
+        reason = f"⏰ 步數限制終止：已達到最大執行步數 {context.step}，最高信心「{top_hypothesis.name}」{max_belief:.2f}"
+        return True, reason
 
-    return False
+    return False, ""

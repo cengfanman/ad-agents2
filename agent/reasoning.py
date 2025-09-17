@@ -117,17 +117,19 @@ def log_tool_result(result: ToolResult):
 
 
 def log_belief_update(updates: List[Dict[str, Any]]):
-    """記錄信念更新"""
+    """記錄信念更新（簡化版：逐個特徵顯示）"""
     if not updates:
         return
 
     console.print()
     console.print(Rule("📊 信念更新", style="yellow"))
 
-    update_text = "根據新證據更新假設信念：\n"
-    for update in updates:
+    update_text = "根據新證據逐步更新假設信念：\n"
+
+    for i, update in enumerate(updates, 1):
         hypothesis = update.get('hypothesis', '')
-        evidence = update.get('evidence', '')
+        feature = update.get('feature', '')
+        feature_value = update.get('feature_value', '')
         score = update.get('score', 0)
         old_belief = update.get('old_belief', 0)
         new_belief = update.get('new_belief', 0)
@@ -135,10 +137,11 @@ def log_belief_update(updates: List[Dict[str, Any]]):
         change = new_belief - old_belief
         arrow = "↗️" if change > 0 else "↘️" if change < 0 else "➡️"
 
-        update_text += f"\n{hypothesis}：{old_belief:.2f} → {new_belief:.2f} {arrow}"
-        update_text += f"\n  證據：{evidence} (評分：{score:+.2f})\n"
+        update_text += f"\n第{i}次更新 - {hypothesis}：{old_belief:.3f} → {new_belief:.3f} {arrow}"
+        update_text += f"\n  特徵：{feature} = {feature_value}"
+        update_text += f"\n  評分：{score:+.3f}，變化：{change:+.3f}\n"
 
-    console.print(Panel(update_text, title="🔄 更新詳情", style="yellow"))
+    console.print(Panel(update_text, title="🔄 逐步更新詳情", style="yellow"))
 
 
 def log_detailed_calculation(feature_name: str, feature_value: float, rule: Dict[str, Any], score: float):
@@ -214,6 +217,22 @@ def log_detailed_calculation(feature_name: str, feature_value: float, rule: Dict
 
 解釋：在正常範圍內。"""
 
+    elif rule_type == "gap" and direction == "lower_worse":
+        if feature_value < thr:
+            severity = abs(feature_value - thr) / abs(thr) if thr != 0 else 1.0
+            calc_text += f"""
+1. 特徵值 ({feature_value:.3f}) < 閾值 ({thr}) ✓ 觸發「越低越糟」條件
+2. 計算嚴重程度：abs(特徵值 - 閾值) / abs(閾值)
+3. 嚴重程度 = abs({feature_value:.3f} - ({thr})) / abs({thr}) = {severity:.3f}
+4. 評分 = min(1.0, {severity:.3f}) = {score:.3f}
+
+解釋：價格差距越負（價格劣勢越大），評分越高，支持「競品壓制」假設。"""
+        else:
+            calc_text += f"""
+1. 特徵值 ({feature_value:.3f}) >= 閾值 ({thr}) → 價格優勢，非劣勢
+2. 評分 = {score:.3f}
+
+解釋：價格高於競品，不存在價格劣勢問題，給予反證據。"""
     else:
         calc_text += f"\n計算邏輯：{rule_type} 類型，最終評分 = {score:.3f}"
 

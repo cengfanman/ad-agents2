@@ -5,6 +5,7 @@ import sys
 import typer
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 
 # 載入環境變數 (強制覆蓋系統環境變數)
 try:
@@ -63,6 +64,17 @@ def diagnose(
 
                 report = generate_summary_report(result["strategy"], tools_executed)
 
+                # 儲存 Markdown 報告到檔案
+                report_dir = Path("reports")
+                report_dir.mkdir(exist_ok=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                scenario_name = Path(scenario).stem  # 取得場景檔案名稱
+                report_file = report_dir / f"診斷報告_{scenario_name}_{timestamp}.md"
+
+                with open(report_file, 'w', encoding='utf-8') as f:
+                    f.write(report)
+
+                console.print(f"\n📄 報告已儲存：{report_file}")
                 console.print("\n" + "="*60)
                 console.print("📋 AI 生成報告")
                 console.print("="*60)
@@ -121,7 +133,7 @@ def setup():
     console.print(f"🐍 Python 版本：{python_version.major}.{python_version.minor}.{python_version.micro}")
 
     # 檢查必要目錄
-    required_dirs = ["mock", "scenarios", "trace", "agent", "tools", "reporter"]
+    required_dirs = ["mock", "scenarios", "trace", "reports", "agent", "tools", "reporter"]
     for dir_name in required_dirs:
         if Path(dir_name).exists():
             console.print(f"✅ 目錄存在：{dir_name}")

@@ -64,22 +64,21 @@ def run_agent_loop(scenario: ScenarioInput, mode: str = "keyword",
         reasoning.log_hypotheses(context.hypotheses)
 
         # 檢查終止條件
-        if should_terminate(context):
-            reasoning.console.print("\n🎯 達到終止條件，準備生成最終策略...")
+        should_end, termination_reason = should_terminate(context)
+        if should_end:
+            reasoning.console.print(f"\n🎯 {termination_reason}")
+            reasoning.console.print("準備生成最終策略...")
             break
 
         # === ACT 階段 ===
-        selected_tool = select_next_tool(context)
+        selected_tool, tool_reasoning = select_next_tool(context)
 
         if not selected_tool:
             reasoning.console.print("\n⚠️ 沒有更多工具可執行，終止循環")
             break
 
-        # 記錄決策推理
-        reasoning.log_decide(
-            selected_tool,
-            f"選擇工具 {selected_tool} 來驗證當前最高信念假設"
-        )
+        # 記錄詳細決策推理
+        reasoning.log_decide(selected_tool, tool_reasoning)
 
         # 執行工具
         tool_result = execute_tool(
