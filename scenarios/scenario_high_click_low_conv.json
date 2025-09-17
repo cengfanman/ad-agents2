@@ -1,0 +1,7 @@
+{
+  "asin": "B0MOCK003",
+  "goal": "improve_conversion",
+  "lookback_days": 7,
+  "notes": "點擊率高但轉換率低，需要改善產品頁面",
+  "scenario_name": "high_click_low_conv"
+}

@@ -1,0 +1,7 @@
+{
+  "days_of_inventory": 45,
+  "restock_eta_days": 0,
+  "stockout_risk": "low",
+  "units_available": 150,
+  "avg_daily_sales": 3
+}

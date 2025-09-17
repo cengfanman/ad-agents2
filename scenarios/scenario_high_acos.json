@@ -1,0 +1,7 @@
+{
+  "asin": "B0MOCK002",
+  "goal": "reduce_acos",
+  "lookback_days": 7,
+  "notes": "廣告成本偏高，需要減少浪費",
+  "scenario_name": "high_acos"
+}

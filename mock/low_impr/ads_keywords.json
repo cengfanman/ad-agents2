@@ -1,0 +1,23 @@
+{
+  "keywords": [
+    {
+      "keyword": "bluetooth耳機",
+      "match_type": "exact",
+      "impressions": 120,
+      "clicks": 5,
+      "spend": 2.5,
+      "orders": 0,
+      "sales": 0
+    },
+    {
+      "keyword": "wireless headphones",
+      "match_type": "broad",
+      "impressions": 80,
+      "clicks": 3,
+      "spend": 3.2,
+      "orders": 1,
+      "sales": 25.99
+    }
+  ],
+  "category_avg_cpc": 2.1
+}

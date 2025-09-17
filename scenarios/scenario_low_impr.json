@@ -1,0 +1,7 @@
+{
+  "asin": "B0MOCK001",
+  "goal": "increase_impressions",
+  "lookback_days": 7,
+  "notes": "廣告曝光量偏低，需要提升可見度",
+  "scenario_name": "low_impr"
+}
