@@ -6,6 +6,20 @@ import typer
 from pathlib import Path
 from typing import Optional
 
+# 載入環境變數 (強制覆蓋系統環境變數)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)  # 強制覆蓋現有環境變數
+except ImportError:
+    # 如果沒有安裝 python-dotenv，手動讀取 .env
+    env_path = Path(__file__).parent / '.env'
+    if env_path.exists():
+        with open(env_path) as f:
+            for line in f:
+                if line.strip() and not line.startswith('#') and '=' in line:
+                    key, value = line.strip().split('=', 1)
+                    os.environ[key] = value
+
 # 添加專案根目錄到 Python 路徑
 sys.path.append(str(Path(__file__).parent))
 

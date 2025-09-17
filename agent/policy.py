@@ -177,13 +177,24 @@ def update_beliefs_from_features(hypotheses: List[Hypothesis], tool_name: str,
                 score = score_feature(feature_value, rule)
                 scores.append(score)
 
+                # 記錄詳細計算過程
+                from agent import reasoning
+                reasoning.log_detailed_calculation(feature_name, feature_value, rule, score)
+
                 # 記錄證據描述
                 evidence_descriptions.append(f"{feature_name}={feature_value}(分數:{score:+.2f})")
 
         if scores:
             # 更新信念
+            old_belief = hypothesis.belief
             new_belief, change = update_belief(hypothesis.belief, ALPHA, scores)
             hypothesis.belief = new_belief
+
+            # 記錄詳細的信念更新計算過程
+            from agent import reasoning
+            reasoning.log_belief_update_calculation(
+                hypothesis.name, old_belief, scores, new_belief, ALPHA
+            )
 
             # 記錄更新詳情
             update_info = {
