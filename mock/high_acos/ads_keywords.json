@@ -2,21 +2,21 @@
   "keywords": [
     {
       "keyword": "bluetooth耳機",
-      "match_type": "exact",
-      "impressions": 120,
-      "clicks": 5,
-      "spend": 2.5,
-      "orders": 0,
-      "sales": 0
+      "match_type": "broad",
+      "impressions": 1200,
+      "clicks": 45,
+      "spend": 285.5,
+      "orders": 3,
+      "sales": 245.85
     },
     {
       "keyword": "wireless headphones",
       "match_type": "broad",
-      "impressions": 80,
-      "clicks": 3,
-      "spend": 3.2,
-      "orders": 1,
-      "sales": 25.99
+      "impressions": 800,
+      "clicks": 35,
+      "spend": 221.9,
+      "orders": 2,
+      "sales": 163.9
     }
   ],
   "category_avg_cpc": 2.1

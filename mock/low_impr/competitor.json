@@ -1,8 +1,8 @@
 {
-  "avg_competitor_price": 29.99,
+  "avg_competitor_price": 28.99,
   "our_price": 24.99,
-  "top_competitor_rating": 4.6,
-  "sponsored_share": 0.45,
-  "market_saturation": "high",
+  "top_competitor_rating": 4.1,
+  "sponsored_share": 0.20,
+  "market_saturation": "medium",
   "brand_recognition": "medium"
 }

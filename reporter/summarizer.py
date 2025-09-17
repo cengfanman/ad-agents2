@@ -6,7 +6,7 @@ from langchain.schema import SystemMessage, HumanMessage
 from .templates import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 
 
-def generate_summary_report(strategy: Dict[str, Any], tools_executed: List[str]) -> str:
+def generate_summary_report(strategy: Dict[str, Any], tools_executed: List[str], tool_findings: Dict[str, Any] = None) -> str:
     """
     使用 OpenAI 生成簡潔的報告摘要
 
@@ -28,18 +28,22 @@ def generate_summary_report(strategy: Dict[str, Any], tools_executed: List[str])
         llm = ChatOpenAI(
             model=model,
             temperature=0.3,
-            max_tokens=500
+            max_tokens=1000
         )
 
         # 準備 prompt 資料
         tools_text = "\n".join([f"• {tool}" for tool in tools_executed])
         actions_text = _format_actions(strategy.get("actions", []))
+        reasoning_text = strategy.get("reasoning", "基於數據分析和假設驗證")
+        findings_text = _format_tool_findings(tool_findings) if tool_findings else "詳細的數據分析結果"
 
         user_prompt = USER_PROMPT_TEMPLATE.format(
             primary_hypothesis=strategy.get("primary_hypothesis", "未知"),
             confidence=strategy.get("confidence", 0),
             tools_executed=tools_text,
-            actions=actions_text
+            tool_findings=findings_text,
+            actions=actions_text,
+            reasoning=reasoning_text
         )
 
         # 建立訊息
@@ -74,6 +78,24 @@ def _format_actions(actions: List[Dict[str, Any]]) -> str:
     return "\n\n".join(formatted)
 
 
+def _format_tool_findings(tool_findings: Dict[str, Any]) -> str:
+    """格式化工具發現為文字"""
+    if not tool_findings:
+        return "無具體發現"
+
+    formatted = []
+    for tool, findings in tool_findings.items():
+        tool_text = f"**{tool}**："
+        if isinstance(findings, dict):
+            for key, value in findings.items():
+                tool_text += f"\n  - {key}: {value}"
+        else:
+            tool_text += f" {findings}"
+        formatted.append(tool_text)
+
+    return "\n\n".join(formatted)
+
+
 def _generate_fallback_report(strategy: Dict[str, Any], tools_executed: List[str]) -> str:
     """
     生成本地備援報告（當 OpenAI 不可用時）
@@ -89,10 +111,15 @@ def _generate_fallback_report(strategy: Dict[str, Any], tools_executed: List[str
     confidence = strategy.get("confidence", 0)
     actions = strategy.get("actions", [])
 
+    reasoning = strategy.get("reasoning", "基於數據分析和假設驗證的結果")
+
     report = f"""# 📊 Amazon 廣告診斷報告
 
 ## 🎯 診斷結論
 **{primary}**（置信度：{confidence:.1%}）
+
+## 🧠 AI 推理過程
+{reasoning}
 
 ## 🚀 建議行動
 

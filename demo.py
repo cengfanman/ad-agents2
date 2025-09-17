@@ -58,11 +58,26 @@ def diagnose(
             # 生成報告
             if generate_report:
                 console.print("\n📝 生成詳細報告...")
-                tools_executed = [
-                    "AdsMetrics", "ListingAudit", "Competitor", "Inventory"
-                ]  # 簡化版本
 
-                report = generate_summary_report(result["strategy"], tools_executed)
+                # 從軌跡中提取真實執行的工具和發現
+                tools_executed = []
+                tool_findings = {}
+
+                # 讀取軌跡檔案獲取詳細的工具執行情況
+                trace_file = result.get('trace_file')
+                if trace_file and Path(trace_file).exists():
+                    import json
+                    with open(trace_file, 'r', encoding='utf-8') as f:
+                        trace_data = json.load(f)
+
+                    for step in trace_data.get('steps', []):
+                        tool_result = step.get('tool_result', {})
+                        if tool_result.get('ok'):
+                            tool_name = tool_result.get('tool_name')
+                            tools_executed.append(tool_name)
+                            tool_findings[tool_name] = tool_result.get('features', {})
+
+                report = generate_summary_report(result["strategy"], tools_executed, tool_findings)
 
                 # 儲存 Markdown 報告到檔案
                 report_dir = Path("reports")
